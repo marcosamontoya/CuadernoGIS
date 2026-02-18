@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgroLabor GIS - Test Configuración</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 { color: #2d5016; }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #2d5016;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover { background: #1a3009; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔧 Test de Configuración - AgroLabor GIS</h1>
+        <p>Esta página te ayudará a verificar que todo está configurado correctamente.</p>
+    </div>
+
+    <div class="card">
+        <h2>1. Verificación de config.js</h2>
+        <div id="configCheck"></div>
+    </div>
+
+    <div class="card">
+        <h2>2. Test de Conexión a Supabase</h2>
+        <div id="supabaseCheck"></div>
+        <button onclick="testSupabase()" style="margin-top: 10px;">Probar Conexión</button>
+    </div>
+
+    <div class="card">
+        <h2>3. Test de Registro</h2>
+        <input type="email" id="testEmail" placeholder="Email de prueba (ej: test@test.com)">
+        <input type="password" id="testPassword" placeholder="Contraseña (mínimo 6 caracteres)">
+        <button onclick="testRegister()">Probar Registro</button>
+        <div id="registerResult" style="margin-top: 10px;"></div>
+    </div>
+
+    <div class="card">
+        <h2>4. Test de Login</h2>
+        <input type="email" id="loginEmail" placeholder="Email">
+        <input type="password" id="loginPassword" placeholder="Contraseña">
+        <button onclick="testLogin()">Probar Login</button>
+        <div id="loginResult" style="margin-top: 10px;"></div>
+    </div>
+
+    <div class="card">
+        <h2>5. Verificar Tablas</h2>
+        <button onclick="checkTables()">Verificar Tablas en DB</button>
+        <div id="tablesResult" style="margin-top: 10px;"></div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        let supabase = null;
+
+        // 1. Verificar config.js al cargar
+        function verificarConfig() {
+            const configDiv = document.getElementById('configCheck');
+            
+            console.log('Verificando config.js...');
+            
+            if (typeof SUPABASE_CONFIG === 'undefined') {
+                configDiv.innerHTML = `
+                    <div class="status error">
+                        ❌ <strong>ERROR: No se encontró config.js</strong><br><br>
+                        El archivo config.js debe estar en la MISMA carpeta que este HTML.<br><br>
+                        <strong>Estructura correcta:</strong><br>
+                        📁 mi-carpeta/<br>
+                        &nbsp;&nbsp;├── test_configuracion.html (este archivo)<br>
+                        &nbsp;&nbsp;├── config.js (DEBE ESTAR AQUÍ)<br>
+                        &nbsp;&nbsp;├── agrolabor_gis_completo.html<br>
+                        &nbsp;&nbsp;└── supabase_schema_gis.sql
+                    </div>
+                `;
+                return false;
+            }
+
+            console.log('config.js encontrado:', SUPABASE_CONFIG);
+
+            const { url, anonKey } = SUPABASE_CONFIG;
+            
+            if (!url || !anonKey) {
+                configDiv.innerHTML = '<div class="status error">❌ ERROR: config.js está vacío o mal formado</div>';
+                return false;
+            }
+
+            if (url.includes('tu-proyecto') || anonKey.includes('tu-anon-key')) {
+                configDiv.innerHTML = `
+                    <div class="status error">
+                        ❌ <strong>ERROR: Debes configurar tus credenciales en config.js</strong><br><br>
+                        <strong>Pasos:</strong><br>
+                        1. Abre config.js en un editor de texto<br>
+                        2. Ve a <a href="https://supabase.com" target="_blank">supabase.com</a> y entra a tu proyecto<br>
+                        3. Ve a Settings → API<br>
+                        4. Copia "Project URL" y pégala en config.js<br>
+                        5. Copia "anon public key" y pégala en config.js<br>
+                        6. Guarda config.js<br>
+                        7. Recarga esta página (F5)
+                    </div>
+                `;
+                return false;
+            }
+
+            configDiv.innerHTML = `
+                <div class="status success">
+                    ✅ <strong>config.js encontrado y configurado correctamente</strong><br><br>
+                    <strong>URL:</strong> ${url}<br>
+                    <strong>Key:</strong> ${anonKey.substring(0, 30)}...<br><br>
+                    Ahora puedes continuar con las siguientes pruebas.
+                </div>
+            `;
+
+            // Inicializar Supabase
+            try {
+                console.log('Inicializando Supabase...');
+                supabase = window.supabase.createClient(url, anonKey);
+                document.getElementById('supabaseCheck').innerHTML = '<div class="status info">ℹ️ Supabase inicializado. Haz clic en "Probar Conexión"</div>';
+                console.log('Supabase inicializado correctamente');
+            } catch (error) {
+                console.error('Error al inicializar Supabase:', error);
+                document.getElementById('supabaseCheck').innerHTML = `<div class="status error">❌ Error al inicializar: ${error.message}</div>`;
+            }
+
+            return true;
+        }
+
+        // 2. Test de conexión
+        async function testSupabase() {
+            console.log('Probando conexión a Supabase...');
+            const div = document.getElementById('supabaseCheck');
+            div.innerHTML = '<div class="status info">⏳ Probando conexión a Supabase...</div>';
+
+            if (!supabase) {
+                div.innerHTML = '<div class="status error">❌ Supabase no está inicializado. Verifica config.js primero.</div>';
+                return;
+            }
+
+            try {
+                console.log('Consultando tabla fincas...');
+                const { data, error } = await supabase.from('fincas').select('count', { count: 'exact', head: true });
+                
+                console.log('Respuesta:', { data, error });
+                
+                if (error) {
+                    if (error.code === 'PGRST116') {
+                        div.innerHTML = '<div class="status success">✅ Conexión exitosa! (tabla fincas está vacía, es normal al inicio)</div>';
+                    } else if (error.message.includes('relation') && error.message.includes('does not exist')) {
+                        div.innerHTML = `
+                            <div class="status error">
+                                ❌ <strong>La tabla "fincas" no existe</strong><br><br>
+                                Esto significa que NO ejecutaste el SQL en Supabase.<br><br>
+                                <strong>Solución:</strong><br>
+                                1. Ve a tu proyecto en Supabase<br>
+                                2. Click en "SQL Editor" (menú izquierdo)<br>
+                                3. Abre el archivo supabase_schema_gis.sql<br>
+                                4. Copia TODO su contenido<br>
+                                5. Pégalo en el SQL Editor<br>
+                                6. Click en "Run" o presiona Ctrl+Enter<br>
+                                7. Espera a que termine (puede tardar 10-30 segundos)<br>
+                                8. Vuelve aquí y haz clic en "Probar Conexión" nuevamente
+                            </div>
+                        `;
+                    } else {
+                        throw error;
+                    }
+                } else {
+                    div.innerHTML = '<div class="status success">✅ Conexión exitosa a Supabase! La base de datos está lista.</div>';
+                }
+            } catch (error) {
+                console.error('Error de conexión:', error);
+                div.innerHTML = `
+                    <div class="status error">
+                        ❌ <strong>Error de conexión:</strong><br>
+                        ${error.message}<br><br>
+                        <strong>Posibles causas:</strong><br>
+                        • No ejecutaste el SQL en Supabase<br>
+                        • Las credenciales en config.js son incorrectas<br>
+                        • El proyecto de Supabase está pausado<br>
+                        • No tienes conexión a internet
+                    </div>
+                `;
+            }
+        }
+
+        // 3. Test de registro
+        async function testRegister() {
+            console.log('Probando registro...');
+            const email = document.getElementById('testEmail').value.trim();
+            const password = document.getElementById('testPassword').value;
+            const div = document.getElementById('registerResult');
+
+            if (!email || !password) {
+                div.innerHTML = '<div class="status error">❌ Completa email y contraseña</div>';
+                return;
+            }
+
+            if (password.length < 6) {
+                div.innerHTML = '<div class="status error">❌ La contraseña debe tener al menos 6 caracteres</div>';
+                return;
+            }
+
+            if (!supabase) {
+                div.innerHTML = '<div class="status error">❌ Supabase no está inicializado. Verifica config.js primero.</div>';
+                return;
+            }
+
+            div.innerHTML = '<div class="status info">⏳ Registrando usuario en Supabase...</div>';
+
+            try {
+                console.log('Intentando registrar:', email);
+                const { data, error } = await supabase.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
+                        data: {
+                            full_name: 'Usuario de Prueba'
+                        }
+                    }
+                });
+
+                console.log('Respuesta de registro:', { data, error });
+
+                if (error) throw error;
+
+                div.innerHTML = `
+                    <div class="status success">
+                        ✅ <strong>¡Registro exitoso!</strong><br><br>
+                        <strong>Usuario ID:</strong> ${data.user.id}<br>
+                        <strong>Email:</strong> ${data.user.email}<br><br>
+                        📧 <strong>IMPORTANTE:</strong> Revisa tu bandeja de entrada.<br>
+                        Supabase envió un email a <strong>${email}</strong><br>
+                        (Revisa también la carpeta de SPAM)<br><br>
+                        <strong>Haz clic en el link del email para confirmar tu cuenta.</strong><br>
+                        Sin confirmación, NO podrás iniciar sesión.
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error de registro:', error);
+                
+                let mensaje = error.message;
+                let ayuda = '';
+                
+                if (error.message.includes('already registered') || error.message.includes('User already registered')) {
+                    ayuda = '📌 Este email ya está registrado. Intenta iniciar sesión en la sección 4, o usa un email diferente.';
+                } else if (error.message.includes('Invalid email')) {
+                    ayuda = '📌 El formato del email no es válido. Usa un email real (ej: tu@gmail.com)';
+                } else if (error.message.includes('Password')) {
+                    ayuda = '📌 La contraseña no cumple los requisitos (mínimo 6 caracteres).';
+                }
+                
+                div.innerHTML = `
+                    <div class="status error">
+                        ❌ <strong>Error en registro:</strong><br>
+                        ${mensaje}<br><br>
+                        ${ayuda}
+                    </div>
+                `;
+            }
+        }
+
+        // 4. Test de login
+        async function testLogin() {
+            console.log('Probando login...');
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const div = document.getElementById('loginResult');
+
+            if (!email || !password) {
+                div.innerHTML = '<div class="status error">❌ Completa email y contraseña</div>';
+                return;
+            }
+
+            if (!supabase) {
+                div.innerHTML = '<div class="status error">❌ Supabase no está inicializado. Verifica config.js primero.</div>';
+                return;
+            }
+
+            div.innerHTML = '<div class="status info">⏳ Iniciando sesión...</div>';
+
+            try {
+                console.log('Intentando login:', email);
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                console.log('Respuesta de login:', { data, error });
+
+                if (error) throw error;
+
+                const confirmado = data.user.email_confirmed_at ? 'Sí ✓' : 'No ✗';
+                
+                div.innerHTML = `
+                    <div class="status success">
+                        ✅ <strong>¡Login exitoso!</strong><br><br>
+                        <strong>Usuario ID:</strong> ${data.user.id}<br>
+                        <strong>Email:</strong> ${data.user.email}<br>
+                        <strong>Email confirmado:</strong> ${confirmado}<br><br>
+                        ${!data.user.email_confirmed_at ? 
+                            '⚠️ <strong>Tu email NO está confirmado.</strong><br>Revisa tu bandeja y confirma el email para usar la aplicación.<br><br>' : 
+                            '🎉 <strong>¡Todo listo!</strong><br>Ahora puedes usar agrolabor_gis_completo.html'
+                        }
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error de login:', error);
+                
+                let mensaje = error.message;
+                let ayuda = '';
+                
+                if (error.message.includes('Invalid login credentials') || error.message.includes('Invalid')) {
+                    ayuda = `
+                        <strong>Posibles causas:</strong><br>
+                        • Email o contraseña incorrectos<br>
+                        • El usuario no existe (regístrate primero en sección 3)<br>
+                        • No confirmaste tu email (revisa tu bandeja)<br><br>
+                        <strong>Verifica:</strong><br>
+                        1. El email es exactamente el que usaste al registrarte<br>
+                        2. La contraseña es correcta<br>
+                        3. Confirmaste el email (revisa spam también)
+                    `;
+                } else if (error.message.includes('Email not confirmed')) {
+                    ayuda = '📧 <strong>Email no confirmado.</strong> Revisa tu bandeja de entrada y haz clic en el link de confirmación que te envió Supabase.';
+                }
+                
+                div.innerHTML = `
+                    <div class="status error">
+                        ❌ <strong>Error en login:</strong><br>
+                        ${mensaje}<br><br>
+                        ${ayuda}
+                    </div>
+                `;
+            }
+        }
+
+        // 5. Verificar tablas
+        async function checkTables() {
+            console.log('Verificando tablas...');
+            const div = document.getElementById('tablesResult');
+            div.innerHTML = '<div class="status info">⏳ Verificando tablas en la base de datos...</div>';
+
+            if (!supabase) {
+                div.innerHTML = '<div class="status error">❌ Supabase no está inicializado. Verifica config.js primero.</div>';
+                return;
+            }
+
+            try {
+                const tables = ['usuarios', 'fincas', 'cuarteles', 'trabajadores', 'tipos_labor', 'registros_horas'];
+                let results = '<strong>Estado de las tablas:</strong><br><br>';
+                let todasExisten = true;
+
+                for (const table of tables) {
+                    try {
+                        console.log('Verificando tabla:', table);
+                        const { error } = await supabase.from(table).select('count', { count: 'exact', head: true });
+                        
+                        if (error) {
+                            if (error.code === 'PGRST116') {
+                                results += `✅ <strong>${table}</strong>: Existe (vacía)<br>`;
+                            } else if (error.message.includes('does not exist')) {
+                                results += `❌ <strong>${table}</strong>: NO EXISTE<br>`;
+                                todasExisten = false;
+                            } else {
+                                results += `⚠️ <strong>${table}</strong>: ${error.message}<br>`;
+                                todasExisten = false;
+                            }
+                        } else {
+                            results += `✅ <strong>${table}</strong>: Existe y tiene datos<br>`;
+                        }
+                    } catch (e) {
+                        console.error('Error verificando tabla:', table, e);
+                        results += `❌ <strong>${table}</strong>: Error al verificar<br>`;
+                        todasExisten = false;
+                    }
+                }
+
+                if (!todasExisten) {
+                    results += `
+                        <br><br>
+                        ❌ <strong>Faltan tablas!</strong><br>
+                        Debes ejecutar el archivo SQL completo en Supabase.<br><br>
+                        <strong>Pasos:</strong><br>
+                        1. Ve a Supabase → SQL Editor<br>
+                        2. Copia TODO el contenido de supabase_schema_gis.sql<br>
+                        3. Pégalo y ejecuta (Run)<br>
+                        4. Vuelve aquí y haz clic en "Verificar Tablas" nuevamente
+                    `;
+                    div.innerHTML = `<div class="status error">${results}</div>`;
+                } else {
+                    results += '<br><br>🎉 <strong>¡Todas las tablas existen!</strong> La base de datos está correctamente configurada.';
+                    div.innerHTML = `<div class="status success">${results}</div>`;
+                }
+            } catch (error) {
+                console.error('Error general:', error);
+                div.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Ejecutar verificación al cargar
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Página cargada, verificando configuración...');
+            verificarConfig();
+        });
+
+        // Mostrar errores en consola
+        window.addEventListener('error', (e) => {
+            console.error('Error en la página:', e.error);
+        });
+    </script>
+</body>
+</html>
