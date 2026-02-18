@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgroLabor GIS - Test Configuración</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 { color: #2d5016; }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #2d5016;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover { background: #1a3009; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔧 Test de Configuración - AgroLabor GIS</h1>
+        <p>Esta página te ayudará a verificar que todo está configurado correctamente.</p>
+    </div>
+
+    <div class="card">
+        <h2>1. Verificación de config.js</h2>
+        <div id="configCheck"></div>
+    </div>
+
+    <div class="card">
+        <h2>2. Test de Conexión a Supabase</h2>
+        <div id="supabaseCheck"></div>
+        <button onclick="testSupabase()" style="margin-top: 10px;">Probar Conexión</button>
+    </div>
+
+    <div class="card">
+        <h2>3. Test de Registro</h2>
+        <input type="email" id="testEmail" placeholder="Email de prueba (ej: test@test.com)">
+        <input type="password" id="testPassword" placeholder="Contraseña (mínimo 6 caracteres)">
+        <button onclick="testRegister()">Probar Registro</button>
+        <div id="registerResult" style="margin-top: 10px;"></div>
+    </div>
+
+    <div class="card">
+        <h2>4. Test de Login</h2>
+        <input type="email" id="loginEmail" placeholder="Email">
+        <input type="password" id="loginPassword" placeholder="Contraseña">
+        <button onclick="testLogin()">Probar Login</button>
+        <div id="loginResult" style="margin-top: 10px;"></div>
+    </div>
+
+    <div class="card">
+        <h2>5. Verificar Tablas</h2>
+        <button onclick="checkTables()">Verificar Tablas en DB</button>
+        <div id="tablesResult" style="margin-top: 10px;"></div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        let supabase = null;
+
+        // 1. Verificar config.js
+        window.addEventListener('DOMContentLoaded', () => {
+            const configDiv = document.getElementById('configCheck');
+            
+            if (typeof SUPABASE_CONFIG === 'undefined') {
+                configDiv.innerHTML = '<div class="status error">❌ ERROR: No se encontró config.js<br>Asegúrate de que config.js está en la misma carpeta que este archivo.</div>';
+                return;
+            }
+
+            const { url, anonKey } = SUPABASE_CONFIG;
+            
+            if (!url || !anonKey) {
+                configDiv.innerHTML = '<div class="status error">❌ ERROR: config.js está vacío</div>';
+                return;
+            }
+
+            if (url.includes('tu-proyecto') || anonKey.includes('tu-anon-key')) {
+                configDiv.innerHTML = `
+                    <div class="status error">
+                        ❌ ERROR: Debes configurar tus credenciales en config.js<br><br>
+                        <strong>Pasos:</strong><br>
+                        1. Ve a tu proyecto en <a href="https://supabase.com" target="_blank">Supabase</a><br>
+                        2. Settings → API<br>
+                        3. Copia Project URL y anon public key<br>
+                        4. Pégalos en config.js
+                    </div>
+                `;
+                return;
+            }
+
+            configDiv.innerHTML = `
+                <div class="status success">
+                    ✅ config.js encontrado y configurado<br>
+                    <strong>URL:</strong> ${url}<br>
+                    <strong>Key:</strong> ${anonKey.substring(0, 20)}...
+                </div>
+            `;
+
+            // Inicializar Supabase
+            try {
+                supabase = window.supabase.createClient(url, anonKey);
+                document.getElementById('supabaseCheck').innerHTML = '<div class="status info">ℹ️ Supabase inicializado. Haz clic en "Probar Conexión"</div>';
+            } catch (error) {
+                document.getElementById('supabaseCheck').innerHTML = `<div class="status error">❌ Error al inicializar: ${error.message}</div>`;
+            }
+        });
+
+        // 2. Test de conexión
+        async function testSupabase() {
+            const div = document.getElementById('supabaseCheck');
+            div.innerHTML = '<div class="status info">⏳ Probando conexión...</div>';
+
+            try {
+                const { data, error } = await supabase.from('fincas').select('count', { count: 'exact', head: true });
+                
+                if (error) {
+                    if (error.code === 'PGRST116') {
+                        div.innerHTML = '<div class="status success">✅ Conexión exitosa (tabla fincas está vacía, es normal)</div>';
+                    } else {
+                        throw error;
+                    }
+                } else {
+                    div.innerHTML = '<div class="status success">✅ Conexión exitosa a Supabase</div>';
+                }
+            } catch (error) {
+                div.innerHTML = `
+                    <div class="status error">
+                        ❌ Error de conexión:<br>
+                        <strong>${error.message}</strong><br><br>
+                        Posibles causas:<br>
+                        • No ejecutaste el SQL en Supabase<br>
+                        • Las credenciales son incorrectas<br>
+                        • El proyecto de Supabase está pausado
+                    </div>
+                `;
+            }
+        }
+
+        // 3. Test de registro
+        async function testRegister() {
+            const email = document.getElementById('testEmail').value.trim();
+            const password = document.getElementById('testPassword').value;
+            const div = document.getElementById('registerResult');
+
+            if (!email || !password) {
+                div.innerHTML = '<div class="status error">❌ Completa email y contraseña</div>';
+                return;
+            }
+
+            if (password.length < 6) {
+                div.innerHTML = '<div class="status error">❌ La contraseña debe tener al menos 6 caracteres</div>';
+                return;
+            }
+
+            div.innerHTML = '<div class="status info">⏳ Registrando usuario...</div>';
+
+            try {
+                const { data, error } = await supabase.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
+                        data: {
+                            full_name: 'Usuario de Prueba'
+                        }
+                    }
+                });
+
+                if (error) throw error;
+
+                div.innerHTML = `
+                    <div class="status success">
+                        ✅ Registro exitoso!<br><br>
+                        <strong>Usuario ID:</strong> ${data.user.id}<br>
+                        <strong>Email:</strong> ${data.user.email}<br><br>
+                        📧 <strong>IMPORTANTE:</strong> Revisa tu email para confirmar la cuenta.<br>
+                        (Revisa también la carpeta de spam)
+                    </div>
+                `;
+            } catch (error) {
+                div.innerHTML = `
+                    <div class="status error">
+                        ❌ Error en registro:<br>
+                        <strong>${error.message}</strong><br><br>
+                        ${error.message.includes('already registered') ? 
+                            'Este email ya está registrado. Intenta iniciar sesión o usa otro email.' : ''}
+                    </div>
+                `;
+            }
+        }
+
+        // 4. Test de login
+        async function testLogin() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const div = document.getElementById('loginResult');
+
+            if (!email || !password) {
+                div.innerHTML = '<div class="status error">❌ Completa email y contraseña</div>';
+                return;
+            }
+
+            div.innerHTML = '<div class="status info">⏳ Iniciando sesión...</div>';
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) throw error;
+
+                div.innerHTML = `
+                    <div class="status success">
+                        ✅ Login exitoso!<br><br>
+                        <strong>Usuario ID:</strong> ${data.user.id}<br>
+                        <strong>Email:</strong> ${data.user.email}<br>
+                        <strong>Email confirmado:</strong> ${data.user.email_confirmed_at ? 'Sí ✓' : 'No (revisa tu email)'}<br><br>
+                        🎉 Ahora puedes usar la aplicación principal.
+                    </div>
+                `;
+            } catch (error) {
+                div.innerHTML = `
+                    <div class="status error">
+                        ❌ Error en login:<br>
+                        <strong>${error.message}</strong><br><br>
+                        Verifica:<br>
+                        • Email y contraseña correctos<br>
+                        • Confirmaste tu email (revisa bandeja)<br>
+                        • El usuario existe (regístrate primero)
+                    </div>
+                `;
+            }
+        }
+
+        // 5. Verificar tablas
+        async function checkTables() {
+            const div = document.getElementById('tablesResult');
+            div.innerHTML = '<div class="status info">⏳ Verificando tablas...</div>';
+
+            try {
+                const tables = ['usuarios', 'fincas', 'cuarteles', 'trabajadores', 'tipos_labor', 'registros_horas'];
+                let results = '<strong>Estado de las tablas:</strong><br><br>';
+
+                for (const table of tables) {
+                    try {
+                        const { error } = await supabase.from(table).select('count', { count: 'exact', head: true });
+                        
+                        if (error) {
+                            if (error.code === 'PGRST116') {
+                                results += `✅ ${table}: Existe (vacía)<br>`;
+                            } else {
+                                results += `❌ ${table}: ${error.message}<br>`;
+                            }
+                        } else {
+                            results += `✅ ${table}: Existe<br>`;
+                        }
+                    } catch (e) {
+                        results += `❌ ${table}: No existe o error<br>`;
+                    }
+                }
+
+                div.innerHTML = `<div class="status success">${results}</div>`;
+            } catch (error) {
+                div.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
