@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgroLabor GIS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Work Sans', sans-serif; background: #f5f5f5; }
+        
+        /* Auth Screen */
+        .auth-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1a3009 0%, #2d5016 100%);
+            padding: 2rem;
+        }
+        .auth-card {
+            background: white;
+            border-radius: 20px;
+            padding: 3rem;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .auth-logo { text-align: center; margin-bottom: 2rem; }
+        .auth-logo-icon { font-size: 4rem; margin-bottom: 1rem; }
+        .auth-title { font-family: 'Crimson Pro', serif; font-size: 2.5rem; color: #2d5016; margin-bottom: 0.5rem; }
+        .auth-subtitle { color: #666; font-size: 1rem; }
+        .auth-tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 2px solid #e0e0e0; }
+        .auth-tab {
+            flex: 1;
+            padding: 1rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+        }
+        .auth-tab.active { color: #2d5016; border-bottom-color: #2d5016; }
+        .auth-form { display: none; }
+        .auth-form.active { display: block; }
+        .form-group { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+        .form-label { font-weight: 600; color: #2a2a2a; font-size: 0.9rem; }
+        .form-input {
+            padding: 0.75rem 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-family: 'Work Sans', sans-serif;
+        }
+        .form-input:focus { outline: none; border-color: #2d5016; }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-family: 'Work Sans', sans-serif;
+        }
+        .btn-primary { background: #2d5016; color: white; width: 100%; }
+        .btn-primary:hover { background: #1a3009; }
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border-left: 4px solid;
+        }
+        .alert-success { background: rgba(74,124,42,0.1); border-color: #4a7c2a; color: #4a7c2a; }
+        .alert-error { background: rgba(201,76,76,0.1); border-color: #c94c4c; color: #c94c4c; }
+        .hidden { display: none; }
+        
+        /* Main App */
+        .main-app { min-height: 100vh; background: #faf8f3; }
+        .header {
+            background: #2d5016;
+            color: white;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        }
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-family: 'Crimson Pro', serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        .btn-logout {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-logout:hover { background: rgba(255,255,255,0.3); }
+        .main-content { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .welcome-card {
+            background: white;
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .welcome-card h1 { color: #2d5016; margin-bottom: 1rem; font-family: 'Crimson Pro', serif; }
+        .welcome-card p { color: #666; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+    <!-- Auth Screen -->
+    <div id="authScreen" class="auth-screen">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <div class="auth-logo-icon">🌾</div>
+                <h1 class="auth-title">AgroLabor GIS</h1>
+                <p class="auth-subtitle">Sistema de Gestión Agrícola</p>
+            </div>
+
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="tabLogin">Iniciar Sesión</button>
+                <button class="auth-tab" id="tabRegister">Registrarse</button>
+            </div>
+
+            <!-- Login Form -->
+            <div id="loginForm" class="auth-form active">
+                <div id="loginAlert"></div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="loginEmail" class="form-input" placeholder="tu@email.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contraseña</label>
+                    <input type="password" id="loginPassword" class="form-input" placeholder="••••••••">
+                </div>
+                <button class="btn btn-primary" id="btnLogin">Iniciar Sesión</button>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerForm" class="auth-form">
+                <div id="registerAlert"></div>
+                <div class="form-group">
+                    <label class="form-label">Nombre Completo</label>
+                    <input type="text" id="registerName" class="form-input" placeholder="Juan Pérez">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="registerEmail" class="form-input" placeholder="tu@email.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contraseña</label>
+                    <input type="password" id="registerPassword" class="form-input" placeholder="Mínimo 6 caracteres">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confirmar Contraseña</label>
+                    <input type="password" id="registerPasswordConfirm" class="form-input" placeholder="Repite tu contraseña">
+                </div>
+                <button class="btn btn-primary" id="btnRegister">Crear Cuenta</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp" class="main-app hidden">
+        <div class="header">
+            <div class="header-content">
+                <div class="logo">🌾 AgroLabor GIS</div>
+                <div>
+                    <span id="userName" style="margin-right: 1rem;"></span>
+                    <button class="btn-logout" id="btnLogout">Cerrar Sesión</button>
+                </div>
+            </div>
+        </div>
+        <div class="main-content">
+            <div class="welcome-card">
+                <h1>¡Bienvenido a AgroLabor GIS!</h1>
+                <p>Has iniciado sesión correctamente.</p>
+                <p style="margin-top: 1rem; color: #2d5016; font-weight: 600;">
+                    Sistema funcionando ✓
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        let supabase = null;
+        let currentUser = null;
+
+        // Mostrar alerta
+        function showAlert(containerId, message, type) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => container.innerHTML = '', 5000);
+        }
+
+        // Cambiar tab
+        document.getElementById('tabLogin').addEventListener('click', function() {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+            this.classList.add('active');
+            document.getElementById('loginForm').classList.add('active');
+        });
+
+        document.getElementById('tabRegister').addEventListener('click', function() {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+            this.classList.add('active');
+            document.getElementById('registerForm').classList.add('active');
+        });
+
+        // Login
+        document.getElementById('btnLogin').addEventListener('click', async function() {
+            console.log('Click en Login');
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                showAlert('loginAlert', 'Completa todos los campos', 'error');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) throw error;
+
+                currentUser = data.user;
+                showAlert('loginAlert', '✓ Iniciando sesión...', 'success');
+                
+                setTimeout(() => {
+                    document.getElementById('authScreen').classList.add('hidden');
+                    document.getElementById('mainApp').classList.remove('hidden');
+                    document.getElementById('userName').textContent = currentUser.email;
+                }, 500);
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('loginAlert', error.message, 'error');
+            }
+        });
+
+        // Register
+        document.getElementById('btnRegister').addEventListener('click', async function() {
+            console.log('Click en Register');
+            const name = document.getElementById('registerName').value.trim();
+            const email = document.getElementById('registerEmail').value.trim();
+            const password = document.getElementById('registerPassword').value;
+            const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+
+            if (!name || !email || !password || !passwordConfirm) {
+                showAlert('registerAlert', 'Completa todos los campos', 'error');
+                return;
+            }
+
+            if (password !== passwordConfirm) {
+                showAlert('registerAlert', 'Las contraseñas no coinciden', 'error');
+                return;
+            }
+
+            if (password.length < 6) {
+                showAlert('registerAlert', 'Mínimo 6 caracteres', 'error');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: { data: { full_name: name } }
+                });
+
+                if (error) throw error;
+
+                showAlert('registerAlert', '✓ Cuenta creada! Ahora puedes iniciar sesión.', 'success');
+                
+                setTimeout(() => {
+                    document.getElementById('tabLogin').click();
+                    document.getElementById('loginEmail').value = email;
+                }, 2000);
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('registerAlert', error.message, 'error');
+            }
+        });
+
+        // Logout
+        document.getElementById('btnLogout').addEventListener('click', async function() {
+            if (confirm('¿Cerrar sesión?')) {
+                await supabase.auth.signOut();
+                currentUser = null;
+                document.getElementById('mainApp').classList.add('hidden');
+                document.getElementById('authScreen').classList.remove('hidden');
+                document.getElementById('loginEmail').value = '';
+                document.getElementById('loginPassword').value = '';
+            }
+        });
+
+        // Inicializar
+        window.addEventListener('load', async function() {
+            console.log('🚀 Cargando aplicación...');
+            
+            // Cargar config.js
+            const script = document.createElement('script');
+            script.src = 'config.js';
+            script.onerror = () => {
+                alert('ERROR: No se encontró config.js');
+            };
+            script.onload = async () => {
+                if (typeof SUPABASE_CONFIG === 'undefined') {
+                    alert('ERROR: config.js no tiene SUPABASE_CONFIG');
+                    return;
+                }
+
+                const { url, anonKey } = SUPABASE_CONFIG;
+                
+                if (!url || url.includes('tu-proyecto')) {
+                    alert('ERROR: Configura tus credenciales en config.js');
+                    return;
+                }
+
+                console.log('✅ Config cargado');
+                supabase = window.supabase.createClient(url, anonKey);
+                console.log('✅ Supabase inicializado');
+
+                // Verificar sesión existente
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    currentUser = session.user;
+                    document.getElementById('authScreen').classList.add('hidden');
+                    document.getElementById('mainApp').classList.remove('hidden');
+                    document.getElementById('userName').textContent = currentUser.email;
+                }
+            };
+            document.head.appendChild(script);
+        });
+    </script>
+</body>
+</html>
